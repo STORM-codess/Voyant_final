@@ -6,7 +6,7 @@
 
 import { auth } from "./firebase";
 
-export const API_BASE = "http://localhost:8000";
+export const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 
 // Core fetch wrapper: attaches the current user's Firebase ID token as
 // a Bearer header, parses JSON, throws on non-OK responses.
