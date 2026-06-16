@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "changethislater"
 
     # comma-separated list of allowed CORS origins; defaults to local Vite dev
-    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    CORS_ORIGINS: str = "https://voyant-eta.vercel.app/"
 
     # require strict DB SSL verification (set true in production with proper certs)
     DB_SSL_VERIFY: bool = False
