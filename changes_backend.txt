@@ -1,0 +1,3 @@
+recommendations
+number of people for count
+ai metrics in the frontend to showcase from the backend

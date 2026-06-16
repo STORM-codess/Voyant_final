@@ -1,0 +1,7 @@
+.env
+firebase_credentials.json
+venv/
+__pycache__/
+*.pyc
+get_id_token.py
+test_token.py
