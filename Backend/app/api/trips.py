@@ -144,6 +144,56 @@ async def get_trip(
         "pending_invites": pending_invites,
     }
 
+
+@router.post("/{trip_id}/join")
+async def join_trip(
+    trip_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Join a trip via a shared link. Any signed-in user who has the link can
+    join (the trip id is an unguessable UUID). Idempotent: if already a member,
+    it just returns success."""
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    # already a member? nothing to do.
+    existing = (await db.execute(
+        select(TripMember).where(
+            TripMember.trip_id == trip_id,
+            TripMember.user_id == current_user["uid"],
+        )
+    )).scalar_one_or_none()
+    if existing:
+        return {"message": "Already a member", "trip_id": trip_id, "joined": False}
+
+    db.add(TripMember(
+        id=str(uuid.uuid4()),
+        trip_id=trip_id,
+        user_id=current_user["uid"],
+        is_admin=False,
+    ))
+
+    # clean up any pending email-invite for this user (link join supersedes it)
+    user = (await db.execute(
+        select(User).where(User.id == current_user["uid"])
+    )).scalar_one_or_none()
+    if user and user.email:
+        for inv in (await db.execute(
+            select(PendingInvite).where(
+                PendingInvite.trip_id == trip_id,
+                PendingInvite.email == user.email.lower(),
+            )
+        )).scalars().all():
+            await db.delete(inv)
+
+    await db.commit()
+    return {"message": "Joined trip", "trip_id": trip_id, "joined": True, "trip_name": trip.name}
+
+
 @router.post("/{trip_id}/invite")
 async def invite_member(
     trip_id: str,
