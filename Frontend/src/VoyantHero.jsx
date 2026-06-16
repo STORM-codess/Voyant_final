@@ -25,7 +25,7 @@ const DESTS = [
   { name: "Manali", region: "Himachal · Mountains", grad: ["#7BA697", "#2F5D50"], img: manali },
   { name: "Mumbai", region: "Maharashtra · City", grad: ["#9CB89A", "#4E7C6C"], img: mumbai },
   { name: "Kerala", region: "India · Backwaters", grad: ["#8FC8A0", "#3E8E6A"], img: kerala },
-  { name: "Hampta Pass", region: "Gujrat · Desert", grad: ["#8FC8A0", "#3E8E6A"], img: hampta_pass },
+  { name: "Hampta Pass", region: "Uttrakhand · Mountain", grad: ["#8FC8A0", "#3E8E6A"], img: hampta_pass },
 ];
 
 const AUTO_MS = 5200;        // time each destination stays before auto-advancing
