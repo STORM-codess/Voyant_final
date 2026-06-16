@@ -61,8 +61,24 @@ export default function VoyantHero() {
   const [flier, setFlier] = useState(null); // { dest, from:{top,left,width,height}, grow:bool }
   const cardRefs = useRef({});               // idx -> card DOM node
   const animating = useRef(false);
+  const rootRef = useRef(null);
+  const [inView, setInView] = useState(true); // hero visible in viewport?
 
   useEffect(() => { const t = setTimeout(() => setLoaded(true), 80); return () => clearTimeout(t); }, []);
+
+  // pause the auto-advance (and its full-screen morph overlay) whenever the
+  // hero is scrolled out of view — otherwise the fixed overlay flashes across
+  // the page over other sections when the timer fires.
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { threshold: 0.35 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   const transitionTo = useCallback((to, sourceRect) => {
     if (animating.current || to === active) return;
@@ -101,13 +117,14 @@ export default function VoyantHero() {
   };
 
   useEffect(() => {
+    if (!inView) return;        // don't cycle (or flash the overlay) when scrolled away
     const id = setInterval(() => {
       const to = (active + 1) % DESTS.length;
       // the "Up next" card IS the next destination — morph from it
       transitionTo(to, rectOf(to));
     }, AUTO_MS);
     return () => clearInterval(id);
-  }, [active, interacted, transitionTo]);
+  }, [active, interacted, transitionTo, inView]);
 
   const selectCard = (idx) => {
     setInteracted((n) => n + 1);
@@ -137,7 +154,7 @@ export default function VoyantHero() {
   const enter = (i) => ({ animation: `heroTextIn 820ms cubic-bezier(0.22,1,0.36,1) ${i * 110}ms both` });
 
   return (
-    <div style={{
+    <div ref={rootRef} style={{
       position: "relative", minHeight: "100vh", overflow: "hidden",
       fontFamily: "'Inter', system-ui, sans-serif", color: C.white, background: "#141528",
     }}>
@@ -172,8 +189,9 @@ export default function VoyantHero() {
         willChange: "transform",
       }} />
 
-      {/* FLIP flying overlay: card image growing into the full background */}
-      {flier && (
+      {/* FLIP flying overlay: card image growing into the full background.
+          Gated on inView so a fixed overlay can never flash over other sections. */}
+      {flier && inView && (
         <div aria-hidden style={{
           position: "fixed", zIndex: 3,
           top: flier.grow ? 0 : flier.from.top,
