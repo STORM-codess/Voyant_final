@@ -120,6 +120,15 @@ async def get_trip(
             "joined_at": member.joined_at.isoformat() if member.joined_at else None,
         })
 
+    # still-pending invites (people invited but not yet registered/joined)
+    pending_result = await db.execute(
+        select(PendingInvite).where(PendingInvite.trip_id == trip_id)
+    )
+    pending_invites = [
+        {"email": p.email, "created_at": p.created_at.isoformat() if p.created_at else None}
+        for p in pending_result.scalars().all()
+    ]
+
     return {
         "id": trip.id,
         "name": trip.name,
@@ -132,6 +141,7 @@ async def get_trip(
         "updated_at": trip.updated_at.isoformat() if trip.updated_at else None,
         "members": members,
         "member_count": len(members),
+        "pending_invites": pending_invites,
     }
 
 @router.post("/{trip_id}/invite")
