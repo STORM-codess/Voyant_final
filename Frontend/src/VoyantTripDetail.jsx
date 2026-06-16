@@ -46,6 +46,27 @@ function Overview({ trip, tripId, isAdmin, isCreator, onChanged, navigate }) {
   const [inviteMsg, setInviteMsg] = useState(null); // {ok, text}
   const [busyEmail, setBusyEmail] = useState(null);  // which pending invite is being cancelled
   const [leaving, setLeaving] = useState(false);
+  const [shareMsg, setShareMsg] = useState("");
+
+  const shareLink = `${window.location.origin}/trip/${tripId}`;
+
+  const shareTrip = async () => {
+    const data = {
+      title: `Join ${trip.name} on Voyant`,
+      text: `Join my trip "${trip.name}" on Voyant — help pick where we go!`,
+      url: shareLink,
+    };
+    if (navigator.share) {
+      try { await navigator.share(data); return; } catch { return; }
+    }
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      setShareMsg("Copied!");
+      setTimeout(() => setShareMsg(""), 2000);
+    } catch {
+      setShareMsg("Copy failed");
+    }
+  };
 
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -109,21 +130,22 @@ function Overview({ trip, tripId, isAdmin, isCreator, onChanged, navigate }) {
 
         {isAdmin && (
           <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${C.line}` }}>
-            <div style={{ font: "600 0.82rem 'Inter'", color: C.textSoft, marginBottom: 8 }}>Invite a friend</div>
+            <div style={{ font: "600 0.82rem 'Inter'", color: C.textSoft, marginBottom: 4 }}>Invite people</div>
+            <div style={{ font: "400 0.78rem 'Inter'", color: C.textSoft, marginBottom: 10, lineHeight: 1.5 }}>
+              Share this link — anyone who opens it can sign in and join the trip.
+            </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="friend@email.com" type="email"
-                onKeyDown={(e) => { if (e.key === "Enter") sendInvite(); }}
-                style={{ flex: 1, border: `1.5px solid ${C.line}`, borderRadius: 10, padding: "9px 12px", font: "400 0.88rem 'Inter'", color: C.ink, background: C.surface, outline: "none" }} />
-              <button onClick={sendInvite} disabled={!validEmail || inviting}
-                style={{ border: "none", background: validEmail && !inviting ? C.forest : C.line, color: "#fff", font: "700 0.84rem 'Inter'", padding: "9px 18px", borderRadius: 10, cursor: validEmail && !inviting ? "pointer" : "default" }}>
-                {inviting ? "Sending…" : "Invite"}
+              <input value={shareLink} readOnly onFocus={(e) => e.target.select()}
+                style={{ flex: 1, border: `1.5px solid ${C.line}`, borderRadius: 10, padding: "9px 12px", font: "400 0.82rem 'Inter'", color: C.textSoft, background: C.surface, outline: "none" }} />
+              <button onClick={shareTrip}
+                style={{ border: "none", background: C.forest, color: "#fff", font: "700 0.84rem 'Inter'", padding: "9px 18px", borderRadius: 10, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
+                <Share2 size={15} /> {shareMsg || "Share"}
               </button>
             </div>
-            {inviteMsg && <div style={{ font: "500 0.8rem 'Inter'", color: inviteMsg.ok ? C.sageDeep : "#C0392B", marginTop: 8 }}>{inviteMsg.text}</div>}
 
             {pending.length > 0 && (
               <div style={{ marginTop: 16 }}>
-                <div style={{ font: "600 0.78rem 'Inter'", color: C.textSoft, marginBottom: 8 }}>Pending invites</div>
+                <div style={{ font: "600 0.78rem 'Inter'", color: C.textSoft, marginBottom: 8 }}>Pending email invites</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {pending.map((p) => (
                     <div key={p.email} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: C.surface, border: `1px solid ${C.line}`, borderRadius: 9 }}>
@@ -288,7 +310,6 @@ export default function VoyantTripDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [joining, setJoining] = useState(false);
-  const [shareMsg, setShareMsg] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -331,8 +352,6 @@ export default function VoyantTripDetail() {
   const isAdmin = members.some((m) => m.user_id === profile?.id && m.is_admin);
   const isMember = members.some((m) => m.user_id === profile?.id);
 
-  const tripLink = `${window.location.origin}/trip/${id}`;
-
   const handleJoin = async () => {
     setJoining(true);
     try {
@@ -340,24 +359,6 @@ export default function VoyantTripDetail() {
       await reloadTrip();
     } catch {
       setJoining(false);
-    }
-  };
-
-  const handleShare = async () => {
-    const shareData = {
-      title: `Join ${trip.name} on Voyant`,
-      text: `Join my trip "${trip.name}" on Voyant — help pick where we go!`,
-      url: tripLink,
-    };
-    if (navigator.share) {
-      try { await navigator.share(shareData); return; } catch { return; }
-    }
-    try {
-      await navigator.clipboard.writeText(tripLink);
-      setShareMsg("Link copied!");
-      setTimeout(() => setShareMsg(""), 2000);
-    } catch {
-      setShareMsg(tripLink);
     }
   };
 
@@ -377,17 +378,12 @@ export default function VoyantTripDetail() {
           <h1 style={{ font: "600 2.4rem 'Fraunces', serif", color: C.forest, margin: "4px 0 6px" }}>{trip.name}</h1>
           <div style={{ font: "400 0.92rem 'Inter'", color: C.textSoft }}>{trip.trip_date ? new Date(trip.trip_date).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }) : "Dates to be decided"}</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ display: "flex", alignItems: "center" }}>
           <div style={{ display: "flex" }}>
             {members.map((m, i) => (
               <div key={m.user_id || i} style={{ marginLeft: i ? -10 : 0 }}><div style={{ border: "2.5px solid " + C.cream, borderRadius: 99 }}><Avatar m={m} size={38} /></div></div>
             ))}
           </div>
-          {isMember && (
-            <button onClick={handleShare} title="Share invite link" style={{ border: `1.5px solid ${C.forest}`, background: "transparent", color: C.forest, font: "700 0.82rem 'Inter'", padding: "9px 16px", borderRadius: 99, cursor: "pointer", display: "flex", alignItems: "center", gap: 7 }}>
-              <Share2 size={15} /> {shareMsg || "Share invite"}
-            </button>
-          )}
         </div>
       </div>
 
