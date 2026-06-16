@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Trophy } from "lucide-react";
+import { ArrowLeft, Trophy, X, LogOut } from "lucide-react";
 import { api } from "./api";
 import { useAuth } from "./AuthContext";
 import FormTab from "./FormTab";
@@ -38,11 +38,14 @@ function Card({ children, style, onClick }) {
 }
 
 // ── TAB PANELS ──
-function Overview({ trip, tripId, isAdmin }) {
+function Overview({ trip, tripId, isAdmin, isCreator, onChanged, navigate }) {
   const members = trip.members || [];
+  const pending = trip.pending_invites || [];
   const [email, setEmail] = useState("");
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState(null); // {ok, text}
+  const [busyEmail, setBusyEmail] = useState(null);  // which pending invite is being cancelled
+  const [leaving, setLeaving] = useState(false);
 
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -54,12 +57,37 @@ function Overview({ trip, tripId, isAdmin }) {
       await api.post(`/trips/${tripId}/invite?email=${encodeURIComponent(email.toLowerCase())}`);
       setInviteMsg({ ok: true, text: `Invite sent to ${email}` });
       setEmail("");
+      onChanged && onChanged();
     } catch (e) {
       if (e.status === 403) setInviteMsg({ ok: false, text: "Only the trip admin can invite." });
       else if (e.status === 400) setInviteMsg({ ok: false, text: "That person is already invited or a member." });
       else setInviteMsg({ ok: false, text: "Couldn't send the invite." });
     } finally {
       setInviting(false);
+    }
+  };
+
+  const cancelInvite = async (em) => {
+    setBusyEmail(em);
+    try {
+      await api.del(`/trips/${tripId}/invite?email=${encodeURIComponent(em)}`);
+      onChanged && onChanged();
+    } catch {
+      setInviteMsg({ ok: false, text: "Couldn't cancel that invite." });
+    } finally {
+      setBusyEmail(null);
+    }
+  };
+
+  const leaveTrip = async () => {
+    if (!window.confirm("Leave this trip? You'll need a new invite to rejoin.")) return;
+    setLeaving(true);
+    try {
+      await api.del(`/trips/${tripId}/leave`);
+      navigate("/dashboard");
+    } catch (e) {
+      setInviteMsg({ ok: false, text: e.status === 400 ? "The trip creator can't leave their own trip." : "Couldn't leave the trip." });
+      setLeaving(false);
     }
   };
 
@@ -92,6 +120,34 @@ function Overview({ trip, tripId, isAdmin }) {
               </button>
             </div>
             {inviteMsg && <div style={{ font: "500 0.8rem 'Inter'", color: inviteMsg.ok ? C.sageDeep : "#C0392B", marginTop: 8 }}>{inviteMsg.text}</div>}
+
+            {pending.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <div style={{ font: "600 0.78rem 'Inter'", color: C.textSoft, marginBottom: 8 }}>Pending invites</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {pending.map((p) => (
+                    <div key={p.email} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: C.surface, border: `1px solid ${C.line}`, borderRadius: 9 }}>
+                      <span style={{ flex: 1, font: "400 0.82rem 'Inter'", color: C.ink }}>{p.email}</span>
+                      <span style={{ font: "500 0.68rem 'Inter'", color: C.goldDeep, background: C.goldWash, padding: "2px 7px", borderRadius: 99 }}>pending</span>
+                      <button onClick={() => cancelInvite(p.email)} disabled={busyEmail === p.email} title="Cancel invite"
+                        style={{ border: "none", background: "transparent", cursor: "pointer", color: C.textSoft, padding: 2, display: "grid", placeItems: "center" }}>
+                        <X size={15} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* non-creator members can leave the trip */}
+        {!isCreator && (
+          <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${C.line}` }}>
+            <button onClick={leaveTrip} disabled={leaving}
+              style={{ border: `1.5px solid ${C.line}`, background: "transparent", color: "#C0392B", font: "600 0.82rem 'Inter'", padding: "9px 16px", borderRadius: 10, cursor: leaving ? "default" : "pointer", display: "flex", alignItems: "center", gap: 7 }}>
+              <LogOut size={15} /> {leaving ? "Leaving…" : "Leave trip"}
+            </button>
           </div>
         )}
       </Card>
@@ -247,6 +303,10 @@ export default function VoyantTripDetail() {
     return () => { alive = false; };
   }, [id]);
 
+  const reloadTrip = async () => {
+    try { setTrip(await api.get(`/trips/${id}`)); } catch { /* keep current */ }
+  };
+
   if (loading) {
     return (
       <div style={{ background: C.cream, minHeight: "100vh", display: "grid", placeItems: "center", fontFamily: "'Inter', system-ui, sans-serif", color: C.textSoft }}>
@@ -308,7 +368,7 @@ export default function VoyantTripDetail() {
       </div>
 
       {/* panel */}
-      {tab === "Overview" && <Overview trip={trip} tripId={id} isAdmin={isAdmin} />}
+      {tab === "Overview" && <Overview trip={trip} tripId={id} isAdmin={isAdmin} isCreator={trip.creator_id === profile?.id} onChanged={reloadTrip} navigate={navigate} />}
       {tab === "Form" && <FormTab tripId={id} isAdmin={isAdmin} />}
       {tab === "Recommendations" && <Recommendations tripId={id} isAdmin={isAdmin} />}
       {tab === "Vote" && <VotePanel tripId={id} isAdmin={isAdmin} />}
