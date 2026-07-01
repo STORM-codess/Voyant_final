@@ -2,9 +2,6 @@
 
 > Picked by your group, decided by a vote. Voyant helps friends plan a trip together — everyone shares their preferences, an AI recommendation engine proposes destinations that fit the *whole group*, and a ranked-choice vote settles where you go.
 
-<!-- Replace these with your real links -->
-**Live demo:** [voyant-eta.vercel.app](https://voyant-eta.vercel.app) · **Engineering deep-dive:** [/how-ai](https://voyant-eta.vercel.app/how-ai)
-
 ---
 
 ## Why this project exists
